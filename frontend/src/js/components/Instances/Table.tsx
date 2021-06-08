@@ -1,3 +1,7 @@
+import menuDown from '@iconify/icons-mdi/menu-down';
+import menuUp from '@iconify/icons-mdi/menu-up';
+import Icon from '@iconify/react';
+import { IconButton } from '@material-ui/core';
 import MuiTable from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -7,14 +11,44 @@ import React from 'react';
 import semver from 'semver';
 import _ from 'underscore';
 import { Channel, Instance } from '../../api/apiDataTypes';
-import { cleanSemverVersion } from '../../utils/helpers';
+import { cleanSemverVersion, InstanceSortFilters } from '../../utils/helpers';
 import Item from './Item';
+
+function TableCellWithSortButtons(props: {
+  sortQuery: string;
+  clickHandler: (sortOrder: boolean, sortKey: string) => void;
+  children: React.ReactNode;
+  isDefault: boolean;
+  defaultSortOrder: boolean;
+}) {
+  const { sortQuery, clickHandler, defaultSortOrder, isDefault } = props;
+  //false denotes a increasing sort order and true a decreasing sort order
+  const [sortOrder, setSortOrder] = React.useState(isDefault ? defaultSortOrder : false);
+  return (
+    <TableCell>
+      {props.children}
+      <IconButton
+        size="small"
+        onClick={() => {
+          setSortOrder(!sortOrder);
+          clickHandler(!sortOrder, sortQuery);
+        }}
+      >
+        <Icon icon={sortOrder ? menuUp : menuDown} />
+      </IconButton>
+    </TableCell>
+  );
+}
 
 function Table(props: {
   version_breakdown?: any;
   channel: Channel;
   instances: Instance[];
+  sortQuery: string;
+  sortOrder: boolean;
+  sortHandler: (sortOrder: boolean, sortKey: string) => void;
 }) {
+  const { sortHandler, sortQuery, sortOrder } = props;
   const [selectedInstance, setSelectedInstance] = React.useState<string | null>(null);
   const versions = props.version_breakdown || [];
   const lastVersionChannel =
@@ -35,11 +69,32 @@ function Table(props: {
     <MuiTable>
       <TableHead>
         <TableRow>
-          <TableCell>Instance</TableCell>
-          <TableCell>IP</TableCell>
+          <TableCellWithSortButtons
+            sortQuery={InstanceSortFilters['id']}
+            clickHandler={sortHandler}
+            isDefault={sortQuery === InstanceSortFilters['id']}
+            defaultSortOrder={sortOrder}
+          >
+            Instance
+          </TableCellWithSortButtons>
+          <TableCellWithSortButtons
+            clickHandler={sortHandler}
+            sortQuery={InstanceSortFilters['ip']}
+            defaultSortOrder={sortOrder}
+            isDefault={sortQuery === InstanceSortFilters['ip']}
+          >
+            IP
+          </TableCellWithSortButtons>
           <TableCell>Current Status</TableCell>
           <TableCell>Version</TableCell>
-          <TableCell>Last Check</TableCell>
+          <TableCellWithSortButtons
+            clickHandler={sortHandler}
+            sortQuery={InstanceSortFilters['last-check']}
+            defaultSortOrder={sortOrder}
+            isDefault={sortQuery === InstanceSortFilters['last-check']}
+          >
+            Last Check
+          </TableCellWithSortButtons>
         </TableRow>
       </TableHead>
       <TableBody>

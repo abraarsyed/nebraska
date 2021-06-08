@@ -15,7 +15,12 @@ import React, { ChangeEvent } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import API from '../../api/API';
 import { Application, Group } from '../../api/apiDataTypes';
-import { getInstanceStatus, useGroupVersionBreakdown } from '../../utils/helpers';
+import {
+  getInstanceStatus,
+  getKeyByValue,
+  InstanceSortFilters,
+  useGroupVersionBreakdown
+} from '../../utils/helpers';
 import Empty from '../Common/EmptyContent';
 import ListHeader from '../Common/ListHeader';
 import Loader from '../Common/Loader';
@@ -26,8 +31,8 @@ import Table from './Table';
 
 const useStyles = makeStyles(theme => ({
   root: {
-    backgroundColor: theme.palette.lightSilverShade,
-  },
+    backgroundColor: theme.palette.lightSilverShade
+  }
 }));
 
 interface InstanceFilterProps {
@@ -124,6 +129,8 @@ function ListView(props: { application: Application; group: Group }) {
   /*TODO: use the URL as the single source of truth and remove states */
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [isAscSortOrder, setIsAscSortOrder] = React.useState(false);
+  const [sortQuery, setSortQuery] = React.useState(InstanceSortFilters['last-check']);
   const [filters, setFilters] = React.useState<{ [key: string]: any }>({ status: '', version: '' });
   const [instancesObj, setInstancesObj] = React.useState({ instances: [], total: -1 });
   const [instanceFetchLoading, setInstanceFetchLoading] = React.useState(false);
@@ -150,12 +157,14 @@ function ListView(props: { application: Application; group: Group }) {
       }
     }
     const version = queryParams.get('version') || '';
+    const sort = InstanceSortFilters[queryParams.get('sort') || 'last-check'];
     const pageFromURL = queryParams.get('page');
     const pageQueryParam = ((pageFromURL && parseInt(pageFromURL)) || 1) - 1;
     const perPage = parseInt(queryParams.get('perPage') as string) || 10;
+    const sortOrder = parseInt(queryParams.get('sortOrder') as string) || 0;
     const duration = getDuration();
 
-    callback(status, version, pageQueryParam, perPage, duration);
+    callback(status, version, sort, sortOrder, pageQueryParam, perPage, duration);
   }
 
   function addQuery(queryObj: { [key: string]: any }) {
@@ -172,7 +181,7 @@ function ListView(props: { application: Application; group: Group }) {
 
     history.push({
       pathname: pathname,
-      search: searchParams.toString(),
+      search: searchParams.toString()
     });
   }
 
@@ -192,9 +201,10 @@ function ListView(props: { application: Application; group: Group }) {
     }
     API.getInstances(application.id, group.id, {
       ...fetchFilters,
+      sortOrder: Number(isAscSortOrder),
       page: page + 1,
       perpage: perPage,
-      duration,
+      duration
     })
       .then(result => {
         setInstanceFetchLoading(false);
@@ -250,14 +260,18 @@ function ListView(props: { application: Application; group: Group }) {
       (
         status: string,
         version: string,
+        sort: string,
+        sortOrder: boolean,
         pageParam: number,
         perPageParam: number,
         duration: string
       ) => {
-        setFilters({ status, version });
+        setFilters({ status, version, sort });
         setPage(pageParam);
+        setIsAscSortOrder(sortOrder);
+        setSortQuery(sort);
         setRowsPerPage(perPageParam);
-        fetchInstances({ status, version }, pageParam, perPageParam, duration);
+        fetchInstances({ status, version, sort }, pageParam, perPageParam, duration);
       }
     );
   }, [location]);
@@ -291,6 +305,14 @@ function ListView(props: { application: Application; group: Group }) {
   function isFiltered() {
     return filters.status || filters.version;
   }
+
+  function sortHandler(sortOrder: boolean, sortQuery: string) {
+    setIsAscSortOrder(sortOrder);
+    setSortQuery(sortQuery);
+    const sortAliasKey = getKeyByValue(InstanceSortFilters, sortQuery)
+    addQuery({ sort: sortAliasKey, sortOrder: Number(sortOrder) });
+  }
+
   return (
     <>
       <ListHeader title="Instance List" />
@@ -348,7 +370,13 @@ function ListView(props: { application: Application; group: Group }) {
               {!instanceFetchLoading ? (
                 instancesObj.instances.length > 0 ? (
                   <React.Fragment>
-                    <Table channel={group.channel} instances={instancesObj.instances} />
+                    <Table
+                      channel={group.channel}
+                      instances={instancesObj.instances}
+                      sortOrder={isAscSortOrder}
+                      sortQuery={sortQuery}
+                      sortHandler={sortHandler}
+                    />
                     <TablePagination
                       rowsPerPageOptions={[10, 25, 50, 100]}
                       component="div"
@@ -356,10 +384,10 @@ function ListView(props: { application: Application; group: Group }) {
                       rowsPerPage={rowsPerPage}
                       page={page}
                       backIconButtonProps={{
-                        'aria-label': 'previous page',
+                        'aria-label': 'previous page'
                       }}
                       nextIconButtonProps={{
-                        'aria-label': 'next page',
+                        'aria-label': 'next page'
                       }}
                       onChangePage={handleChangePage}
                       onChangeRowsPerPage={handleChangeRowsPerPage}
@@ -381,7 +409,7 @@ function ListView(props: { application: Application; group: Group }) {
 
 ListView.propTypes = {
   application: PropTypes.object.isRequired,
-  group: PropTypes.object.isRequired,
+  group: PropTypes.object.isRequired
 };
 
 export default ListView;
